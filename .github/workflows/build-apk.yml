@@ -1,4 +1,4 @@
-name: Build Kaido Follow APK
+name: Build User & Admin APKs
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build-android-apk:
+  build-both-apks:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,46 +27,53 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. تجهيز ملفات الواجهة وبناء مشروع الأندرويد (Capacitor)
+      - name: 4. تثبيت الحزم وتحميل شعار التطبيق
         run: |
-          mkdir -p www
-          if [ -f index.html ]; then cp index.html www/index.html; fi
-          if [ -f admin.html ]; then cp admin.html www/admin.html; fi
           npm install
-          if [ ! -d "android" ]; then
-            npx cap add android
-          else
-            npx cap sync android
-          fi
-
-      - name: 5. تفعيل صلاحيات الإنترنت والشعار في الأندرويد
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' "$MANIFEST" || true
-          fi
           curl -L "https://e.top4top.io/p_3675vatut1.jpg" -o icon.jpg || true
-          if [ -f icon.jpg ]; then
-            find android/app/src/main/res -name "ic_launcher*.png" -exec cp icon.jpg {} \; || true
-          fi
 
-      - name: 6. ترجمة وبناء ملف الـ APK الحقيقي
+      - name: 5. بناء النسخة الأولى - تطبيق المستخدم (Kaido-Follow.apk)
         run: |
+          rm -rf android www
+          mkdir -p www
+          cp index.html www/index.html
+          node -e 'require("fs").writeFileSync("capacitor.config.json", JSON.stringify({appId:"com.kaido.follow",appName:"Kaido Follow",webDir:"www",bundledWebRuntime:false,server:{cleartext:true,allowNavigation:["*"]}}, null, 2))'
+          npx cap add android
+          sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml || true
+          if [ -f icon.jpg ]; then find android/app/src/main/res -name "ic_launcher*.png" -exec cp icon.jpg {} \; || true; fi
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
           cp app/build/outputs/apk/debug/app-debug.apk ../Kaido-Follow.apk
 
-      - name: 7. رفع ملف الـ APK في Artifacts للتحميل
+      - name: 6. بناء النسخة الثانية - تطبيق الإدارة (Kaido-Admin.apk)
+        run: |
+          rm -rf android www
+          mkdir -p www
+          cp admin.html www/index.html
+          node -e 'require("fs").writeFileSync("capacitor.config.json", JSON.stringify({appId:"com.kaido.admin",appName:"Kaido Admin",webDir:"www",bundledWebRuntime:false,server:{cleartext:true,allowNavigation:["*"]}}, null, 2))'
+          npx cap add android
+          sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' android/app/src/main/AndroidManifest.xml || true
+          if [ -f icon.jpg ]; then find android/app/src/main/res -name "ic_launcher*.png" -exec cp icon.jpg {} \; || true; fi
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../Kaido-Admin.apk
+
+      - name: 7. رفع التطبيقين في قسم Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Kaido-Follow-APK
-          path: Kaido-Follow.apk
+          name: Kaido-Both-APKs
+          path: |
+            Kaido-Follow.apk
+            Kaido-Admin.apk
 
-      - name: 8. نشر ملف الـ APK مباشرة في قسم Releases للتحميل بضغطة زر من الهاتف
+      - name: 8. نشر التطبيقين في قسم Releases للتحميل المباشر
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: "نسخة تطبيق كايدو فولو APK #${{ github.run_number }}"
-          body: "تم بناء ملف التطبيق تلقائياً. اضغط على Kaido-Follow.apk بالأسفل لتحميله وتثبيته مباشرة على هاتفك."
-          files: Kaido-Follow.apk
+          name: "إصدار كايدو فولو (المستخدم + الأدمن) #${{ github.run_number }}"
+          body: "اضغط على Kaido-Follow.apk لتحميل تطبيق المستخدم، أو Kaido-Admin.apk لتحميل تطبيق لوحة الإدارة."
+          files: |
+            Kaido-Follow.apk
+            Kaido-Admin.apk
