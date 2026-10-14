@@ -1,0 +1,72 @@
+name: Build Kaido Follow APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. جلب ملفات المنصة من المستودع
+        uses: actions/checkout@v4
+
+      - name: 2. إعداد بيئة Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 3. إعداد بيئة Java JDK 17 للأندرويد
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 4. تجهيز ملفات الواجهة وبناء مشروع الأندرويد (Capacitor)
+        run: |
+          mkdir -p www
+          if [ -f index.html ]; then cp index.html www/index.html; fi
+          if [ -f admin.html ]; then cp admin.html www/admin.html; fi
+          npm install
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            npx cap sync android
+          fi
+
+      - name: 5. تفعيل صلاحيات الإنترنت والشعار في الأندرويد
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' "$MANIFEST" || true
+          fi
+          curl -L "https://e.top4top.io/p_3675vatut1.jpg" -o icon.jpg || true
+          if [ -f icon.jpg ]; then
+            find android/app/src/main/res -name "ic_launcher*.png" -exec cp icon.jpg {} \; || true
+          fi
+
+      - name: 6. ترجمة وبناء ملف الـ APK الحقيقي
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../Kaido-Follow.apk
+
+      - name: 7. رفع ملف الـ APK في Artifacts للتحميل
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kaido-Follow-APK
+          path: Kaido-Follow.apk
+
+      - name: 8. نشر ملف الـ APK مباشرة في قسم Releases للتحميل بضغطة زر من الهاتف
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "نسخة تطبيق كايدو فولو APK #${{ github.run_number }}"
+          body: "تم بناء ملف التطبيق تلقائياً. اضغط على Kaido-Follow.apk بالأسفل لتحميله وتثبيته مباشرة على هاتفك."
+          files: Kaido-Follow.apk
