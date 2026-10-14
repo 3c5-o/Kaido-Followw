@@ -1,0 +1,14 @@
+{
+  "name": "kaido-follow",
+  "version": "1.0.0",
+  "description": "Kaido Follow Social Media Services App",
+  "main": "www/index.html",
+  "scripts": {
+    "build": "echo 'Ready'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^5.7.0",
+    "@capacitor/cli": "^5.7.0",
+    "@capacitor/core": "^5.7.0"
+  }
+}
